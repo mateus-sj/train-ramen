@@ -1,5 +1,5 @@
 # train-ramen
-Repositório para a realização do alinhamento de modelos tipo roberta utilizando o ramen - Português jurídico.
+Repositório para a realização  da etapa final (fine-tuning) do alinhamento de modelos tipo roberta utilizando o ramen - Português jurídico.
 
 Baseado no artigo [From English To Foreign Languages: Transferring Pre-trained Language Models](https://arxiv.org/abs/2002.07306).
 
