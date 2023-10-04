@@ -25,6 +25,14 @@ PRETRAINED_DIR=/work/models/roberta_pretrained
 # SAVE PATH
 EXP_PATH=/work/models/ramen_jur_roberta
 
+# Check if TGT_INIT exists, if not, create it
+if [ ! -d "$TGT_INIT" ]; then
+  mkdir -p $TGT_INIT
+fi
+
+# Copy the config.json from PRETRAINED_DIR to TGT_INIT
+cp ${PRETRAINED_DIR}/config.json ${TGT_INIT}/
+
 #WANDB
 export WANDB_API_KEY="wandb_api_key"
 PROJECT_NAME="test_ramen"

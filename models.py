@@ -36,7 +36,7 @@ class BertMLM(BertPreTrainedModel):
         return masked_lm_loss
 
 
-class RobertaMLM(BertPreTrainedModel):
+class RobertaMLM(RobertaPreTrainedModel):
     """RoBERTa model with the masked language modeling head.
     """
     def __init__(self, config):
