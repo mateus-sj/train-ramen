@@ -3,7 +3,7 @@
 import torch
 import argparse
 import torch.nn as nn
-from transformers import BertTokenizer, RobertaTokenizer, RobertaForMaskedLM
+from transformers import BertTokenizer, RobertaTokenizer, AutoModelForMaskedLM
 from tokenizers import BertWordPieceTokenizer
 import numpy as np
 parser = argparse.ArgumentParser('generate target embeddings from alignments')
@@ -37,9 +37,9 @@ else:
     MASK_TOKEN, MASK_INDEX = "[MASK]", 102
 
     MAP = {
-        'word_embeddings': 'roberta.embeddings.word_embeddings.weight',
-        'output_weight': 'lm_head.decoder.weight',
-        'output_bias': 'lm_head.bias'
+        'word_embeddings': 'bert.embeddings.word_embeddings.weight',
+        'output_weight': 'cls.predictions.decoder.weight',
+        'output_bias': 'cls.predictions.bias'
     }
 
 
@@ -99,7 +99,7 @@ def init_tgt(params):
 
     print(f'| load English pre-trained model: {params.src_model}')
     # model = torch.load(params.src_model)
-    model =  RobertaForMaskedLM.from_pretrained(params.src_model)
+    model =  AutoModelForMaskedLM.from_pretrained(params.src_model)
     if 'roberta' in params.src_model:
         assert params.src_merge, "merge file should be provided!"
         src_tokenizer = RobertaTokenizer(params.src_vocab, params.src_merge)
