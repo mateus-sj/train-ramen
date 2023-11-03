@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from transformers import *
 from transformers.models.roberta.modeling_roberta import RobertaLMHead
 from transformers.models.bert.modeling_bert import BertOnlyMLMHead
-
+from transformers.models.deberta_v2.modeling_deberta_v2 import DebertaV2OnlyMLMHead
 
 class BertMLM(BertPreTrainedModel):
     """BERT model with the masked language modeling head.
@@ -59,6 +59,34 @@ class RobertaMLM(RobertaPreTrainedModel):
         pred_vect = sequence_output[pred_mask]  # (bs, slen, dim)
         y = torch.masked_select(masked_lm_labels, pred_mask)
         prediction_scores = self.lm_head(pred_vect)
+        masked_lm_loss = F.cross_entropy(prediction_scores, y)
+        return masked_lm_loss
+
+
+class DebertaV2MLM(DebertaV2PreTrainedModel):
+    """BERT model with the masked language modeling head.
+      """
+    def __init__(self, config):
+        super(DebertaV2MLM, self).__init__(config)
+        self.deberta = DebertaV2Model(config)
+        self.cls = DebertaV2OnlyMLMHead(config)
+        self.init_weights()
+        self.tie_weights()
+
+    def get_trainable_parameters(self):
+        # this is useful when freezing the encoder parameters
+        return list(self.deberta.embeddings.word_embeddings.parameters()) + [self.cls.predictions.bias]
+
+    def tie_weights(self):
+        self.cls.predictions.decoder.weight = self.deberta.embeddings.word_embeddings.weight
+
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, masked_lm_labels=None):
+        outputs = self.deberta(input_ids, token_type_ids, attention_mask)
+        sequence_output = outputs[0]
+        pred_mask = masked_lm_labels.ne(-1)
+        pred_vect = sequence_output[pred_mask]  # (bs, slen, dim)
+        y = torch.masked_select(masked_lm_labels, pred_mask)
+        prediction_scores = self.cls(pred_vect)
         masked_lm_loss = F.cross_entropy(prediction_scores, y)
         return masked_lm_loss
 
@@ -116,6 +144,38 @@ class RobertaAdaptor(nn.Module):
         # share output layers
         self.tgt_model.lm_head.dense = self.src_model.lm_head.dense
         self.tgt_model.lm_head.layer_norm = self.src_model.lm_head.layer_norm
+
+    def forward(self, lang, input_ids, token_type_ids=None,
+                attention_mask=None, masked_lm_labels=None):
+        model = self.src_model if lang == 'pt' else self.tgt_model
+        return model(input_ids, token_type_ids, attention_mask=attention_mask,
+                     masked_lm_labels=masked_lm_labels)
+
+class DebertaV2Adaptor(nn.Module):
+    """
+    A class for adapting English BERT to other languages
+    """
+    def __init__(self, src_model, tgt_model):
+        """
+        src_model: (DebertaV2ForMaskedLM) of English
+        tgt_model: (DebertaV2ForMaskedLM) of Foreign
+        """
+        super(DebertaV2Adaptor, self).__init__()
+        self.src_model = src_model
+        self.tgt_model = tgt_model
+
+        # force sharing params
+        self.tgt_model.deberta.encoder = self.src_model.deberta.encoder
+        #Ausente
+        self.tgt_model.deberta.pooler = self.src_model.deberta.pooler
+        # share embedding params
+        # Ausente
+        self.tgt_model.deberta.embeddings.position_embeddings = self.src_model.deberta.embeddings.position_embeddings
+        # Ausente
+        self.tgt_model.deberta.embeddings.token_type_embeddings = self.src_model.deberta.embeddings.token_type_embeddings
+        self.tgt_model.deberta.embeddings.LayerNorm = self.src_model.deberta.embeddings.LayerNorm
+        # share output layers
+        self.tgt_model.cls.predictions.transform = self.src_model.cls.predictions.transform
 
     def forward(self, lang, input_ids, token_type_ids=None,
                 attention_mask=None, masked_lm_labels=None):
